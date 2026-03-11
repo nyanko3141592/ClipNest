@@ -62,29 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Menu Construction
 
     private func buildMenu(_ menu: NSMenu) {
-        let history = dataStore.history
-        if history.isEmpty {
-            let item = NSMenuItem(title: "No History", action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
-        } else {
-            for (i, clip) in history.prefix(dataStore.maxHistoryCount).enumerated() {
-                let item = NSMenuItem(
-                    title: clip.displayTitle,
-                    action: #selector(handleHistoryItem(_:)),
-                    keyEquivalent: i < 9 ? "\(i + 1)" : ""
-                )
-                item.target = self
-                item.tag = i
-                if i < 9 {
-                    item.keyEquivalentModifierMask = .command
-                }
-                menu.addItem(item)
-            }
-        }
-
-        menu.addItem(.separator())
-
+        // Snippets first
         let folders = dataStore.rootFolders
         let rootSnippets = dataStore.rootSnippets
         if !folders.isEmpty || !rootSnippets.isEmpty {
@@ -104,16 +82,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(.separator())
         }
 
+        // History as submenu
+        let historyItem = NSMenuItem(title: "History", action: nil, keyEquivalent: "")
+        historyItem.image = NSImage(systemSymbolName: "clock", accessibilityDescription: nil)
+        let historyMenu = NSMenu()
+        let history = dataStore.history
+        if history.isEmpty {
+            let empty = NSMenuItem(title: "No History", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            historyMenu.addItem(empty)
+        } else {
+            for (i, clip) in history.prefix(dataStore.maxHistoryCount).enumerated() {
+                let item = NSMenuItem(
+                    title: clip.displayTitle,
+                    action: #selector(handleHistoryItem(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.tag = i
+                historyMenu.addItem(item)
+            }
+            historyMenu.addItem(.separator())
+            let clearItem = NSMenuItem(title: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
+            clearItem.target = self
+            historyMenu.addItem(clearItem)
+        }
+        historyItem.submenu = historyMenu
+        menu.addItem(historyItem)
+
+        menu.addItem(.separator())
+
         let editItem = NSMenuItem(title: "Edit Snippets...", action: #selector(openSnippetEditor), keyEquivalent: "e")
         editItem.target = self
         editItem.keyEquivalentModifierMask = .command
         menu.addItem(editItem)
-
-        let clearItem = NSMenuItem(title: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
-        clearItem.target = self
-        menu.addItem(clearItem)
-
-        menu.addItem(.separator())
 
         let settingsItem = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self

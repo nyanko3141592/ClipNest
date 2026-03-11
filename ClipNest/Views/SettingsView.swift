@@ -1,11 +1,13 @@
 import SwiftUI
 import Carbon
+import ServiceManagement
 
 struct SettingsView: View {
     @AppStorage("maxHistoryCount") private var maxHistoryCount = 30
     @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode = 9       // V
     @AppStorage("hotkeyModifiers") private var hotkeyModifiers = 768 // Cmd+Shift
     @State private var isRecording = false
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     private var shortcutDisplay: String {
         HotkeyManager.displayString(keyCode: UInt32(hotkeyKeyCode), carbonModifiers: UInt32(hotkeyModifiers))
@@ -13,6 +15,19 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Toggle("Launch at Login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { newValue in
+                    do {
+                        if newValue {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                    } catch {
+                        launchAtLogin = SMAppService.mainApp.status == .enabled
+                    }
+                }
+
             LabeledContent("Global Shortcut") {
                 HStack(spacing: 8) {
                     Text(isRecording ? "Press shortcut..." : shortcutDisplay)
@@ -60,7 +75,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 150)
+        .frame(width: 400, height: 200)
     }
 }
 

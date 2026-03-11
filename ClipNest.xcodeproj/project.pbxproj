@@ -1,0 +1,301 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FA0000000000000000000101 /* ClipNestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000001 /* ClipNestApp.swift */; };
+		FA0000000000000000000102 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000002 /* AppDelegate.swift */; };
+		FA0000000000000000000103 /* ClipboardItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000003 /* ClipboardItem.swift */; };
+		FA0000000000000000000104 /* SnippetFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000004 /* SnippetFolder.swift */; };
+		FA0000000000000000000105 /* ClipboardMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000005 /* ClipboardMonitor.swift */; };
+		FA0000000000000000000106 /* DataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000006 /* DataStore.swift */; };
+		FA0000000000000000000107 /* SnippetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000007 /* SnippetEditorView.swift */; };
+		FA0000000000000000000108 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000008 /* SettingsView.swift */; };
+		FA0000000000000000000109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000009 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		FA0000000000000000000001 /* ClipNestApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipNestApp.swift; sourceTree = "<group>"; };
+		FA0000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		FA0000000000000000000003 /* ClipboardItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardItem.swift; sourceTree = "<group>"; };
+		FA0000000000000000000004 /* SnippetFolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetFolder.swift; sourceTree = "<group>"; };
+		FA0000000000000000000005 /* ClipboardMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardMonitor.swift; sourceTree = "<group>"; };
+		FA0000000000000000000006 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
+		FA0000000000000000000007 /* SnippetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetEditorView.swift; sourceTree = "<group>"; };
+		FA0000000000000000000008 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		FA0000000000000000000009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FA000000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FA000000000000000000000B /* ClipNest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClipNest.entitlements; sourceTree = "<group>"; };
+		FA000000000000000000000C /* ClipNest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClipNest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FA0000000000000000000200 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FA0000000000000000000300 /* root */ = {
+			isa = PBXGroup;
+			children = (
+				FA0000000000000000000301 /* ClipNest */,
+				FA0000000000000000000306 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FA0000000000000000000301 /* ClipNest */ = {
+			isa = PBXGroup;
+			children = (
+				FA0000000000000000000302 /* App */,
+				FA0000000000000000000303 /* Models */,
+				FA0000000000000000000304 /* Services */,
+				FA0000000000000000000305 /* Views */,
+				FA0000000000000000000009 /* Assets.xcassets */,
+				FA000000000000000000000A /* Info.plist */,
+				FA000000000000000000000B /* ClipNest.entitlements */,
+			);
+			path = ClipNest;
+			sourceTree = "<group>";
+		};
+		FA0000000000000000000302 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				FA0000000000000000000001 /* ClipNestApp.swift */,
+				FA0000000000000000000002 /* AppDelegate.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		FA0000000000000000000303 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FA0000000000000000000003 /* ClipboardItem.swift */,
+				FA0000000000000000000004 /* SnippetFolder.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		FA0000000000000000000304 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FA0000000000000000000005 /* ClipboardMonitor.swift */,
+				FA0000000000000000000006 /* DataStore.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		FA0000000000000000000305 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FA0000000000000000000007 /* SnippetEditorView.swift */,
+				FA0000000000000000000008 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FA0000000000000000000306 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FA000000000000000000000C /* ClipNest.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FA0000000000000000000400 /* ClipNest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA0000000000000000000600 /* Build configuration list for PBXNativeTarget "ClipNest" */;
+			buildPhases = (
+				FA0000000000000000000500 /* Sources */,
+				FA0000000000000000000200 /* Frameworks */,
+				FA0000000000000000000501 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClipNest;
+			productName = ClipNest;
+			productReference = FA000000000000000000000C /* ClipNest.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FA0000000000000000000700 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = FA0000000000000000000800 /* Build configuration list for PBXProject "ClipNest" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FA0000000000000000000300 /* root */;
+			productRefGroup = FA0000000000000000000306 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FA0000000000000000000400 /* ClipNest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FA0000000000000000000501 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA0000000000000000000109 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FA0000000000000000000500 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA0000000000000000000101 /* ClipNestApp.swift in Sources */,
+				FA0000000000000000000102 /* AppDelegate.swift in Sources */,
+				FA0000000000000000000103 /* ClipboardItem.swift in Sources */,
+				FA0000000000000000000104 /* SnippetFolder.swift in Sources */,
+				FA0000000000000000000105 /* ClipboardMonitor.swift in Sources */,
+				FA0000000000000000000106 /* DataStore.swift in Sources */,
+				FA0000000000000000000107 /* SnippetEditorView.swift in Sources */,
+				FA0000000000000000000108 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FA0000000000000000000801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FA0000000000000000000802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		FA0000000000000000000803 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ClipNest/ClipNest.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = ClipNest/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.clipnest.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FA0000000000000000000804 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ClipNest/ClipNest.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = ClipNest/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.clipnest.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FA0000000000000000000800 /* Build configuration list for PBXProject "ClipNest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000801 /* Debug */,
+				FA0000000000000000000802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FA0000000000000000000600 /* Build configuration list for PBXNativeTarget "ClipNest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000803 /* Debug */,
+				FA0000000000000000000804 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = FA0000000000000000000700 /* Project object */;
+}

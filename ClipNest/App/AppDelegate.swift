@@ -15,11 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "paperclip", accessibilityDescription: "ClipNest")
+            button.action = #selector(statusItemClicked)
+            button.target = self
         }
-
-        let menu = NSMenu()
-        menu.delegate = self
-        statusItem.menu = menu
 
         clipboardMonitor = ClipboardMonitor(dataStore: dataStore)
         clipboardMonitor.start()
@@ -55,6 +53,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: - Cursor Menu
+
+    @objc private func statusItemClicked() {
+        showMenuAtCursor()
+    }
 
     private func showMenuAtCursor() {
         previousApp = NSWorkspace.shared.frontmostApplication

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SnippetEditorView: View {
     @ObservedObject var dataStore: DataStore
@@ -14,6 +15,13 @@ struct SnippetEditorView: View {
     @State private var showDeleteConfirm = false
     @State private var deleteTargetID: UUID?
     @State private var deleteIsFolder = false
+    @State private var showImportPicker = false
+    @State private var showImportModeAlert = false
+    @State private var pendingImportURL: URL?
+    @State private var showExportPicker = false
+    @State private var importErrorMessage: String?
+    @State private var showImportError = false
+    @State private var showImportSuccess = false
 
     private var selectedSnippet: Snippet? { dataStore.findSnippet(id: selectedID) }
     private var selectedFolder: SnippetFolder? { dataStore.findFolder(id: selectedID) }
@@ -44,6 +52,44 @@ struct SnippetEditorView: View {
                  ? "This folder and all its contents will be deleted."
                  : "This snippet will be deleted.")
         }
+        .alert("Import Mode", isPresented: $showImportModeAlert) {
+            Button("Merge") { performImport(mode: .merge) }
+            Button("Replace", role: .destructive) { performImport(mode: .replace) }
+            Button("Cancel", role: .cancel) { pendingImportURL = nil }
+        } message: {
+            Text("Merge adds new items. Replace overwrites all existing snippets.")
+        }
+        .alert("Import Error", isPresented: $showImportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importErrorMessage ?? "Failed to import.")
+        }
+        .alert("Import Complete", isPresented: $showImportSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Snippets imported successfully.")
+        }
+        .fileImporter(
+            isPresented: $showImportPicker,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                pendingImportURL = url
+                showImportModeAlert = true
+            case .failure(let error):
+                importErrorMessage = error.localizedDescription
+                showImportError = true
+            }
+        }
+        .fileExporter(
+            isPresented: $showExportPicker,
+            document: SnippetExportDocument(data: dataStore.exportSnippetsData() ?? Data()),
+            contentType: .json,
+            defaultFilename: "snippets.json"
+        ) { _ in }
     }
 
     // MARK: - Sidebar
@@ -115,6 +161,16 @@ struct SnippetEditorView: View {
                 .help("New Snippet")
 
                 Spacer()
+
+                Button(action: { showImportPicker = true }) {
+                    Label("Import", systemImage: "square.and.arrow.down")
+                }
+                .help("Import Snippets (JSON)")
+
+                Button(action: { showExportPicker = true }) {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .help("Export Snippets (JSON)")
             }
             .buttonStyle(.borderless)
             .padding(.horizontal, 10)
@@ -295,6 +351,20 @@ struct SnippetEditorView: View {
         }
     }
 
+    private func performImport(mode: ImportMode) {
+        guard let url = pendingImportURL else { return }
+        defer { pendingImportURL = nil }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            try dataStore.importSnippets(from: url, mode: mode)
+            showImportSuccess = true
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showImportError = true
+        }
+    }
+
     private func performDelete() {
         guard let id = deleteTargetID else { return }
         if deleteIsFolder {
@@ -375,5 +445,24 @@ private struct FolderBranch: View {
                 Divider()
                 Button("Delete", role: .destructive) { onDelete(snippet.id, false) }
             }
+    }
+}
+
+// MARK: - FileDocument for export
+
+struct SnippetExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    let data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }

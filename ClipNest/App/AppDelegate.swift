@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var snippetWindow: NSWindow?
     private var settingsWindow: NSWindow?
     private var hotkeyManager = HotkeyManager()
+    private var cursorMenuWindow: NSWindow?
+    private var previousApp: NSRunningApplication?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -25,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         requestAccessibilityIfNeeded()
         registerHotKey()
         hotkeyManager.onHotKey = { [weak self] in
-            self?.statusItem.button?.performClick(nil)
+            self?.showMenuAtCursor()
         }
         NotificationCenter.default.addObserver(
             self, selector: #selector(registerHotKey),
@@ -52,9 +54,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // MARK: - Cursor Menu
+
+    private func showMenuAtCursor() {
+        previousApp = NSWorkspace.shared.frontmostApplication
+
+        let mouseLocation = NSEvent.mouseLocation
+        let menu = NSMenu()
+        menu.delegate = self
+        buildMenu(menu)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: mouseLocation.x - 1, y: mouseLocation.y - 1, width: 2, height: 2),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.level = .popUpMenu
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.ignoresMouseEvents = false
+        window.orderFrontRegardless()
+
+        cursorMenuWindow = window
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 1, y: 1), in: window.contentView)
+
+        window.orderOut(nil)
+        cursorMenuWindow = nil
+    }
+
     // MARK: - NSMenuDelegate
 
     func menuWillOpen(_ menu: NSMenu) {
+        if previousApp == nil {
+            previousApp = NSWorkspace.shared.frontmostApplication
+        }
         menu.removeAllItems()
         buildMenu(menu)
     }
@@ -178,9 +214,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clipboardMonitor.pause()
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+
+        let autoPaste = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true
+        guard autoPaste else {
+            clipboardMonitor.resume()
+            previousApp = nil
+            return
+        }
+
+        // Reactivate the previously focused app before pasting
+        if let app = previousApp {
+            app.activate()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.simulatePaste()
-            self?.clipboardMonitor.resume()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self?.clipboardMonitor.resume()
+                self?.previousApp = nil
+            }
         }
     }
 

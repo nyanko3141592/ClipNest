@@ -1,8 +1,13 @@
 import Foundation
 
-private struct SnippetData: Codable {
+struct SnippetData: Codable {
     var folders: [SnippetFolder]
     var snippets: [Snippet]
+}
+
+enum ImportMode {
+    case merge
+    case replace
 }
 
 final class DataStore: ObservableObject {
@@ -144,6 +149,49 @@ final class DataStore: ObservableObject {
 
     func isRootSnippet(id: UUID) -> Bool {
         rootSnippets.contains { $0.id == id }
+    }
+
+    // MARK: - Import / Export
+
+    func exportSnippetsData() -> Data? {
+        let data = SnippetData(folders: rootFolders, snippets: rootSnippets)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try? encoder.encode(data)
+    }
+
+    func importSnippets(from url: URL, mode: ImportMode) throws {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        let imported = try decoder.decode(SnippetData.self, from: data)
+
+        switch mode {
+        case .replace:
+            rootFolders = imported.folders
+            rootSnippets = imported.snippets
+        case .merge:
+            let existingFolderIDs = Set(allFolderIDs(in: rootFolders))
+            let existingSnippetIDs = Set(allSnippetIDs(in: rootFolders) + rootSnippets.map(\.id))
+            for folder in imported.folders where !existingFolderIDs.contains(folder.id) {
+                var f = folder
+                f.order = rootFolders.count
+                rootFolders.append(f)
+            }
+            for snippet in imported.snippets where !existingSnippetIDs.contains(snippet.id) {
+                var s = snippet
+                s.order = rootSnippets.count
+                rootSnippets.append(s)
+            }
+        }
+        saveSnippets()
+    }
+
+    private func allFolderIDs(in folders: [SnippetFolder]) -> [UUID] {
+        folders.flatMap { [$0.id] + allFolderIDs(in: $0.subfolders) }
+    }
+
+    private func allSnippetIDs(in folders: [SnippetFolder]) -> [UUID] {
+        folders.flatMap { $0.snippets.map(\.id) + allSnippetIDs(in: $0.subfolders) }
     }
 
     // MARK: - Private

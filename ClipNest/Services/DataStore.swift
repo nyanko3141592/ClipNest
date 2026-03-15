@@ -120,6 +120,25 @@ final class DataStore: ObservableObject {
         saveSnippets()
     }
 
+    func togglePin(snippetID: UUID) {
+        if let i = rootSnippets.firstIndex(where: { $0.id == snippetID }) {
+            rootSnippets[i].isPinned.toggle()
+        } else {
+            mutateSnippet(in: &rootFolders, id: snippetID) { $0.isPinned.toggle() }
+        }
+        saveSnippets()
+    }
+
+    var pinnedSnippets: [Snippet] {
+        let fromRoot = rootSnippets.filter(\.isPinned)
+        let fromFolders = collectPinned(in: rootFolders)
+        return fromRoot + fromFolders
+    }
+
+    private func collectPinned(in folders: [SnippetFolder]) -> [Snippet] {
+        folders.flatMap { $0.snippets.filter(\.isPinned) + collectPinned(in: $0.subfolders) }
+    }
+
     func renameSnippet(id: UUID, title: String) {
         if let i = rootSnippets.firstIndex(where: { $0.id == id }) {
             rootSnippets[i].title = title

@@ -130,7 +130,8 @@ struct SnippetEditorView: View {
                                 deleteTargetID = id
                                 deleteIsFolder = isFolder
                                 showDeleteConfirm = true
-                            }
+                            },
+                            onTogglePin: { id in dataStore.togglePin(snippetID: id) }
                         )
                     }
                     // Root-level snippets
@@ -190,6 +191,9 @@ struct SnippetEditorView: View {
                     .fill(selectedID == snippet.id ? Color.accentColor.opacity(0.15) : Color.clear)
             )
             .contextMenu {
+                Button(snippet.isPinned ? "Unpin" : "Pin") {
+                    dataStore.togglePin(snippetID: snippet.id)
+                }
                 Button("Rename...") {
                     renameTargetID = snippet.id
                     renameIsFolder = false
@@ -391,6 +395,7 @@ private struct FolderBranch: View {
     let onAddSubfolder: (UUID) -> Void
     let onRename: (UUID, Bool, String) -> Void
     let onDelete: (UUID, Bool) -> Void
+    let onTogglePin: (UUID) -> Void
 
     var body: some View {
         DisclosureGroup {
@@ -403,7 +408,8 @@ private struct FolderBranch: View {
                     onAddSnippet: onAddSnippet,
                     onAddSubfolder: onAddSubfolder,
                     onRename: onRename,
-                    onDelete: onDelete
+                    onDelete: onDelete,
+                    onTogglePin: onTogglePin
                 )
             }
             ForEach(folder.snippets.sorted(by: { $0.order < $1.order })) { snippet in
@@ -441,6 +447,7 @@ private struct FolderBranch: View {
                     .fill(selectedID == snippet.id ? Color.accentColor.opacity(0.15) : Color.clear)
             )
             .contextMenu {
+                Button(snippet.isPinned ? "Unpin" : "Pin") { onTogglePin(snippet.id) }
                 Button("Rename...") { onRename(snippet.id, false, snippet.title) }
                 Divider()
                 Button("Delete", role: .destructive) { onDelete(snippet.id, false) }

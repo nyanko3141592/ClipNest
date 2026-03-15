@@ -42,6 +42,8 @@ final class ClipboardMonitor {
             return
         }
 
+        if dataStore.history.first?.content == string { return }
+
         dataStore.addHistoryItem(ClipboardItem(content: string))
     }
 }

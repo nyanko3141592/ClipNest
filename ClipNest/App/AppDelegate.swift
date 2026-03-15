@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotkeyManager = HotkeyManager()
     private var cursorMenuWindow: NSWindow?
     private var previousApp: NSRunningApplication?
+    private var searchField: NSSearchField?
+    private var currentFilterText = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -100,14 +102,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Menu Construction
 
     private func buildMenu(_ menu: NSMenu) {
-        // Snippets first
+        // Search field
+        let field = NSSearchField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+        field.placeholderString = "Search..."
+        field.target = self
+        field.action = #selector(searchFieldChanged(_:))
+        field.stringValue = currentFilterText
+        searchField = field
+        let searchItem = NSMenuItem()
+        searchItem.view = field
+        menu.addItem(searchItem)
+        menu.addItem(.separator())
+
+        let isFiltering = !currentFilterText.isEmpty
+
+        // Pinned section
+        let pinned = dataStore.pinnedSnippets
+        let filteredPinned = isFiltering ? pinned.filter { matchesFilter($0) } : pinned
+        if !filteredPinned.isEmpty {
+            let header = NSMenuItem(title: "Pinned", action: nil, keyEquivalent: "")
+            header.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: nil)
+            header.isEnabled = false
+            menu.addItem(header)
+            for snippet in filteredPinned {
+                let item = NSMenuItem(
+                    title: snippet.title,
+                    action: #selector(handleSnippetItem(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = snippet.content
+                menu.addItem(item)
+            }
+            menu.addItem(.separator())
+        }
+
+        // Snippets
         let folders = dataStore.rootFolders
         let rootSnippets = dataStore.rootSnippets
         if !folders.isEmpty || !rootSnippets.isEmpty {
             for folder in folders {
+                if isFiltering && !folderHasMatchingSnippets(folder) { continue }
                 menu.addItem(buildFolderMenuItem(folder))
             }
             for snippet in rootSnippets.sorted(by: { $0.order < $1.order }) {
+                if isFiltering && !matchesFilter(snippet) { continue }
                 let item = NSMenuItem(
                     title: snippet.title,
                     action: #selector(handleSnippetItem(_:)),
@@ -131,6 +170,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             historyMenu.addItem(empty)
         } else {
             for (i, clip) in history.prefix(dataStore.maxHistoryCount).enumerated() {
+                if isFiltering && !clip.content.localizedCaseInsensitiveContains(currentFilterText) {
+                    continue
+                }
                 let item = NSMenuItem(
                     title: clip.displayTitle,
                     action: #selector(handleHistoryItem(_:)),
@@ -169,8 +211,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let item = NSMenuItem(title: folder.title, action: nil, keyEquivalent: "")
         item.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
         let submenu = NSMenu()
+        let isFiltering = !currentFilterText.isEmpty
 
         for subfolder in folder.subfolders.sorted(by: { $0.order < $1.order }) {
+            if isFiltering && !folderHasMatchingSnippets(subfolder) { continue }
             submenu.addItem(buildFolderMenuItem(subfolder))
         }
 
@@ -179,6 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         for snippet in folder.snippets.sorted(by: { $0.order < $1.order }) {
+            if isFiltering && !matchesFilter(snippet) { continue }
             let snippetItem = NSMenuItem(
                 title: snippet.title,
                 action: #selector(handleSnippetItem(_:)),
@@ -214,8 +259,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func copyToPasteboard(_ text: String) {
         clipboardMonitor.pause()
+        let expanded = expandPlaceholders(in: text)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString(expanded, forType: .string)
 
         let autoPaste = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true
         guard autoPaste else {
@@ -275,13 +321,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openSettings() {
-        NSLog("[ClipNest] openSettings called")
         activateApp()
         if let window = settingsWindow, window.isVisible {
-            NSLog("[ClipNest] reusing existing settings window")
             window.makeKeyAndOrderFront(nil)
         } else {
-            NSLog("[ClipNest] creating new settings window")
             let view = SettingsView()
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 350, height: 150),
@@ -296,7 +339,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             window.level = .floating
             settingsWindow = window
             window.makeKeyAndOrderFront(nil)
-            NSLog("[ClipNest] settings window frame: \(window.frame)")
         }
     }
 
@@ -306,5 +348,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    // MARK: - Placeholder Expansion
+
+    private func expandPlaceholders(in text: String) -> String {
+        let now = Date()
+        let dateFormatter = DateFormatter()
+        var result = text
+
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        result = result.replacingOccurrences(of: "{{date}}", with: dateFormatter.string(from: now))
+
+        dateFormatter.dateFormat = "HH:mm"
+        result = result.replacingOccurrences(of: "{{time}}", with: dateFormatter.string(from: now))
+
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        result = result.replacingOccurrences(of: "{{datetime}}", with: dateFormatter.string(from: now))
+
+        if result.contains("{{clipboard}}") {
+            let current = NSPasteboard.general.string(forType: .string) ?? ""
+            result = result.replacingOccurrences(of: "{{clipboard}}", with: current)
+        }
+
+        return result
+    }
+
+    // MARK: - Search
+
+    @objc private func searchFieldChanged(_ sender: NSSearchField) {
+        currentFilterText = sender.stringValue
+        guard let menu = sender.enclosingMenuItem?.menu else { return }
+        menu.removeAllItems()
+        buildMenu(menu)
+        // Restore focus to the search field after rebuild
+        DispatchQueue.main.async { [weak self] in
+            self?.searchField?.becomeFirstResponder()
+        }
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        currentFilterText = ""
+    }
+
+    private func matchesFilter(_ snippet: Snippet) -> Bool {
+        snippet.title.localizedCaseInsensitiveContains(currentFilterText) ||
+        snippet.content.localizedCaseInsensitiveContains(currentFilterText)
+    }
+
+    private func folderHasMatchingSnippets(_ folder: SnippetFolder) -> Bool {
+        if folder.snippets.contains(where: { matchesFilter($0) }) { return true }
+        return folder.subfolders.contains(where: { folderHasMatchingSnippets($0) })
     }
 }

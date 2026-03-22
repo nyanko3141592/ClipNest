@@ -44,6 +44,13 @@ final class ClipboardMonitor {
 
         if dataStore.history.first?.content == string { return }
 
-        dataStore.addHistoryItem(ClipboardItem(content: string))
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        let appName = frontmost?.localizedName
+        let bundleID = frontmost?.bundleIdentifier
+        dataStore.addHistoryItem(ClipboardItem(content: string, sourceAppName: appName, sourceAppBundleID: bundleID))
+
+        if UserDefaults.standard.bool(forKey: "playCopySound") {
+            NSSound(named: "Tink")?.play()
+        }
     }
 }

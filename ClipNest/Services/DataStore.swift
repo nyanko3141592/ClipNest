@@ -17,8 +17,11 @@ final class DataStore: ObservableObject {
 
     var maxHistoryCount: Int {
         let val = UserDefaults.standard.integer(forKey: "maxHistoryCount")
-        return val > 0 ? val : 30
+        return val > 0 ? val : 100
     }
+
+    /// Number of recent history items shown inline in the menu.
+    static let recentHistoryCount = 10
 
     private let historyURL: URL
     private let snippetsURL: URL

@@ -4,6 +4,7 @@ import ServiceManagement
 
 struct SettingsView: View {
     @AppStorage("autoPaste") private var autoPaste = true
+    @AppStorage("playCopySound") private var playCopySound = true
     @AppStorage("maxHistoryCount") private var maxHistoryCount = 30
     @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode = 9       // V
     @AppStorage("hotkeyModifiers") private var hotkeyModifiers = 768 // Cmd+Shift
@@ -68,6 +69,7 @@ struct SettingsView: View {
             }
 
             Toggle("Auto Paste on Select", isOn: $autoPaste)
+            Toggle("Play Sound on Copy", isOn: $playCopySound)
 
             Picker("Max History Items", selection: $maxHistoryCount) {
                 Text("10").tag(10)

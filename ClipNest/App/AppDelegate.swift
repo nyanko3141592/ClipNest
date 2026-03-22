@@ -1,6 +1,23 @@
 import AppKit
 import SwiftUI
 
+// MARK: - MenuSearchField
+
+private class MenuSearchField: NSSearchField {
+    var onReturn: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 36, 76: // Return, Numpad Enter
+            onReturn?()
+        case 125: // Down Arrow — resign so menu handles navigation
+            window?.makeFirstResponder(nil)
+        default:
+            super.keyDown(with: event)
+        }
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var clipboardMonitor: ClipboardMonitor!
@@ -8,16 +25,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var snippetWindow: NSWindow?
     private var settingsWindow: NSWindow?
     private var hotkeyManager = HotkeyManager()
-    private var cursorMenuWindow: NSWindow?
     private var previousApp: NSRunningApplication?
+    private var searchField: NSSearchField?
+    private var currentFilterText = ""
+    private var mainMenu = NSMenu()
+    private var popupPanel: PopupPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "paperclip", accessibilityDescription: "ClipNest")
-            button.action = #selector(statusItemClicked)
-            button.target = self
         }
+
+        mainMenu.delegate = self
+        statusItem.menu = mainMenu
 
         clipboardMonitor = ClipboardMonitor(dataStore: dataStore)
         clipboardMonitor.start()
@@ -52,39 +73,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // MARK: - Cursor Menu
-
-    @objc private func statusItemClicked() {
-        showMenuAtCursor()
-    }
+    // MARK: - Show Panel at Cursor
 
     private func showMenuAtCursor() {
         previousApp = NSWorkspace.shared.frontmostApplication
 
+        if popupPanel == nil {
+            let panel = PopupPanel()
+            panel.onSelectContent = { [weak self] content in
+                self?.copyToPasteboard(content)
+            }
+            panel.onSelectHistory = { [weak self] index in
+                guard let self = self, index < self.dataStore.history.count else { return }
+                self.copyToPasteboard(self.dataStore.history[index].content)
+            }
+            popupPanel = panel
+        }
+
         let mouseLocation = NSEvent.mouseLocation
-        let menu = NSMenu()
-        menu.delegate = self
-        buildMenu(menu)
-
-        let window = NSWindow(
-            contentRect: NSRect(x: mouseLocation.x - 1, y: mouseLocation.y - 1, width: 2, height: 2),
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.level = .popUpMenu
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.hasShadow = false
-        window.ignoresMouseEvents = false
-        window.orderFrontRegardless()
-
-        cursorMenuWindow = window
-
-        menu.popUp(positioning: nil, at: NSPoint(x: 1, y: 1), in: window.contentView)
-
-        window.orderOut(nil)
-        cursorMenuWindow = nil
+        popupPanel?.showAt(mouseLocation, dataStore: dataStore)
     }
 
     // MARK: - NSMenuDelegate
@@ -97,22 +104,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         buildMenu(menu)
     }
 
+    func menuDidClose(_ menu: NSMenu) {
+        currentFilterText = ""
+    }
+
     // MARK: - Menu Construction
 
     private func buildMenu(_ menu: NSMenu) {
-        // Snippets first
-        let folders = dataStore.rootFolders
-        let rootSnippets = dataStore.rootSnippets
-        if !folders.isEmpty || !rootSnippets.isEmpty {
-            for folder in folders {
-                menu.addItem(buildFolderMenuItem(folder))
-            }
-            for snippet in rootSnippets.sorted(by: { $0.order < $1.order }) {
+        // Search field
+        let field = MenuSearchField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+        field.placeholderString = "Search..."
+        field.target = self
+        field.action = #selector(searchFieldChanged(_:))
+        field.stringValue = currentFilterText
+        field.onReturn = { [weak self] in
+            self?.selectFirstActionableItem(in: menu)
+        }
+        searchField = field
+        let searchItem = NSMenuItem()
+        searchItem.view = field
+        menu.addItem(searchItem)
+        menu.addItem(.separator())
+
+        let isFiltering = !currentFilterText.isEmpty
+        var shortcutIndex = 1
+
+        // Pinned section
+        let pinned = dataStore.pinnedSnippets
+        let filteredPinned = isFiltering ? pinned.filter { matchesFilter($0) } : pinned
+        if !filteredPinned.isEmpty {
+            let header = NSMenuItem(title: "Pinned", action: nil, keyEquivalent: "")
+            header.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: nil)
+            header.isEnabled = false
+            menu.addItem(header)
+            for snippet in filteredPinned {
                 let item = NSMenuItem(
                     title: snippet.title,
                     action: #selector(handleSnippetItem(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
                 )
+                if shortcutIndex <= 9 {
+                    item.keyEquivalentModifierMask = .command
+                    shortcutIndex += 1
+                }
                 item.target = self
                 item.representedObject = snippet.content
                 menu.addItem(item)
@@ -120,35 +154,93 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(.separator())
         }
 
-        // History as submenu
-        let historyItem = NSMenuItem(title: "History", action: nil, keyEquivalent: "")
-        historyItem.image = NSImage(systemSymbolName: "clock", accessibilityDescription: nil)
-        let historyMenu = NSMenu()
+        // Snippets
+        let folders = dataStore.rootFolders
+        let rootSnippets = dataStore.rootSnippets
+        if !folders.isEmpty || !rootSnippets.isEmpty {
+            if isFiltering {
+                // Flat list with folder path prefix
+                addFilteredSnippets(folders: folders, rootSnippets: rootSnippets, to: menu, shortcutIndex: &shortcutIndex)
+            } else {
+                // Folder submenus — →/← for keyboard navigation
+                for folder in folders.sorted(by: { $0.order < $1.order }) {
+                    menu.addItem(buildFolderMenuItem(folder, shortcutIndex: &shortcutIndex))
+                }
+                for snippet in rootSnippets.sorted(by: { $0.order < $1.order }) {
+                    let item = NSMenuItem(
+                        title: snippet.title,
+                        action: #selector(handleSnippetItem(_:)),
+                        keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
+                    )
+                    if shortcutIndex <= 9 {
+                        item.keyEquivalentModifierMask = .command
+                        shortcutIndex += 1
+                    }
+                    item.target = self
+                    item.representedObject = snippet.content
+                    menu.addItem(item)
+                }
+            }
+            menu.addItem(.separator())
+        }
+
+        // History — recent inline, older in submenu
         let history = dataStore.history
-        if history.isEmpty {
-            let empty = NSMenuItem(title: "No History", action: nil, keyEquivalent: "")
-            empty.isEnabled = false
-            historyMenu.addItem(empty)
-        } else {
-            for (i, clip) in history.prefix(dataStore.maxHistoryCount).enumerated() {
+        let recentCount = DataStore.recentHistoryCount
+        let allIndexed = Array(history.prefix(dataStore.maxHistoryCount).enumerated())
+        let filteredHistory = isFiltering
+            ? allIndexed.filter { $0.element.content.localizedCaseInsensitiveContains(currentFilterText) }
+            : allIndexed
+
+        if !filteredHistory.isEmpty {
+            let recentItems = filteredHistory.prefix(recentCount)
+            let olderItems = filteredHistory.dropFirst(recentCount)
+
+            let headerTitle = isFiltering ? "History" : "History (recent \(recentItems.count))"
+            let header = NSMenuItem(title: headerTitle, action: nil, keyEquivalent: "")
+            header.image = NSImage(systemSymbolName: "clock", accessibilityDescription: nil)
+            header.isEnabled = false
+            menu.addItem(header)
+
+            for (i, clip) in recentItems {
                 let item = NSMenuItem(
                     title: clip.displayTitle,
                     action: #selector(handleHistoryItem(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
                 )
+                if shortcutIndex <= 9 {
+                    item.keyEquivalentModifierMask = .command
+                    shortcutIndex += 1
+                }
                 item.target = self
                 item.tag = i
-                historyMenu.addItem(item)
+                menu.addItem(item)
             }
-            historyMenu.addItem(.separator())
+
+            // Older history in submenu — → to open
+            if !olderItems.isEmpty {
+                let moreItem = NSMenuItem(title: "More... (\(olderItems.count))", action: nil, keyEquivalent: "")
+                moreItem.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: nil)
+                let moreMenu = NSMenu()
+                for (i, clip) in olderItems {
+                    let item = NSMenuItem(
+                        title: clip.displayTitle,
+                        action: #selector(handleHistoryItem(_:)),
+                        keyEquivalent: ""
+                    )
+                    item.target = self
+                    item.tag = i
+                    moreMenu.addItem(item)
+                }
+                moreItem.submenu = moreMenu
+                menu.addItem(moreItem)
+            }
+
             let clearItem = NSMenuItem(title: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
             clearItem.target = self
-            historyMenu.addItem(clearItem)
+            menu.addItem(clearItem)
+            menu.addItem(.separator())
         }
-        historyItem.submenu = historyMenu
-        menu.addItem(historyItem)
-
-        menu.addItem(.separator())
 
         let editItem = NSMenuItem(title: "Edit Snippets...", action: #selector(openSnippetEditor), keyEquivalent: "e")
         editItem.target = self
@@ -165,13 +257,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(quitItem)
     }
 
-    private func buildFolderMenuItem(_ folder: SnippetFolder) -> NSMenuItem {
+    // MARK: - Folder submenu (→ open, ← close)
+
+    private func buildFolderMenuItem(_ folder: SnippetFolder, shortcutIndex: inout Int) -> NSMenuItem {
         let item = NSMenuItem(title: folder.title, action: nil, keyEquivalent: "")
         item.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
         let submenu = NSMenu()
 
         for subfolder in folder.subfolders.sorted(by: { $0.order < $1.order }) {
-            submenu.addItem(buildFolderMenuItem(subfolder))
+            submenu.addItem(buildFolderMenuItem(subfolder, shortcutIndex: &shortcutIndex))
         }
 
         if !folder.subfolders.isEmpty && !folder.snippets.isEmpty {
@@ -182,8 +276,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let snippetItem = NSMenuItem(
                 title: snippet.title,
                 action: #selector(handleSnippetItem(_:)),
-                keyEquivalent: ""
+                keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
             )
+            if shortcutIndex <= 9 {
+                snippetItem.keyEquivalentModifierMask = .command
+                shortcutIndex += 1
+            }
             snippetItem.target = self
             snippetItem.representedObject = snippet.content
             submenu.addItem(snippetItem)
@@ -197,6 +295,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         item.submenu = submenu
         return item
+    }
+
+    // MARK: - Filtered flat list (search mode)
+
+    private func addFilteredSnippets(folders: [SnippetFolder], rootSnippets: [Snippet], to menu: NSMenu, shortcutIndex: inout Int) {
+        collectMatchingSnippets(from: folders, path: "", to: menu, shortcutIndex: &shortcutIndex)
+
+        for snippet in rootSnippets.sorted(by: { $0.order < $1.order }) {
+            if !matchesFilter(snippet) { continue }
+            let item = NSMenuItem(
+                title: snippet.title,
+                action: #selector(handleSnippetItem(_:)),
+                keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
+            )
+            if shortcutIndex <= 9 {
+                item.keyEquivalentModifierMask = .command
+                shortcutIndex += 1
+            }
+            item.target = self
+            item.representedObject = snippet.content
+            menu.addItem(item)
+        }
+    }
+
+    private func collectMatchingSnippets(from folders: [SnippetFolder], path: String, to menu: NSMenu, shortcutIndex: inout Int) {
+        for folder in folders.sorted(by: { $0.order < $1.order }) {
+            let folderPath = path.isEmpty ? folder.title : "\(path)/\(folder.title)"
+            for snippet in folder.snippets.sorted(by: { $0.order < $1.order }) {
+                if !matchesFilter(snippet) { continue }
+                let item = NSMenuItem(
+                    title: "\(folderPath) › \(snippet.title)",
+                    action: #selector(handleSnippetItem(_:)),
+                    keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
+                )
+                if shortcutIndex <= 9 {
+                    item.keyEquivalentModifierMask = .command
+                    shortcutIndex += 1
+                }
+                item.target = self
+                item.representedObject = snippet.content
+                menu.addItem(item)
+            }
+            collectMatchingSnippets(from: folder.subfolders, path: folderPath, to: menu, shortcutIndex: &shortcutIndex)
+        }
     }
 
     // MARK: - Actions
@@ -214,8 +356,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func copyToPasteboard(_ text: String) {
         clipboardMonitor.pause()
+        let expanded = expandPlaceholders(in: text)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString(expanded, forType: .string)
 
         let autoPaste = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true
         guard autoPaste else {
@@ -224,7 +367,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        // Reactivate the previously focused app before pasting
         if let app = previousApp {
             app.activate()
         }
@@ -240,7 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func simulatePaste() {
         let src = CGEventSource(stateID: .hidSystemState)
-        let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: true)   // V
+        let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 9, keyDown: false)
         keyDown?.flags = .maskCommand
         keyUp?.flags = .maskCommand
@@ -275,13 +417,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openSettings() {
-        NSLog("[ClipNest] openSettings called")
         activateApp()
         if let window = settingsWindow, window.isVisible {
-            NSLog("[ClipNest] reusing existing settings window")
             window.makeKeyAndOrderFront(nil)
         } else {
-            NSLog("[ClipNest] creating new settings window")
             let view = SettingsView()
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 350, height: 150),
@@ -296,7 +435,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             window.level = .floating
             settingsWindow = window
             window.makeKeyAndOrderFront(nil)
-            NSLog("[ClipNest] settings window frame: \(window.frame)")
         }
     }
 
@@ -306,5 +444,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    // MARK: - Placeholder Expansion
+
+    private func expandPlaceholders(in text: String) -> String {
+        let now = Date()
+        let dateFormatter = DateFormatter()
+        var result = text
+
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        result = result.replacingOccurrences(of: "{{date}}", with: dateFormatter.string(from: now))
+
+        dateFormatter.dateFormat = "HH:mm"
+        result = result.replacingOccurrences(of: "{{time}}", with: dateFormatter.string(from: now))
+
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        result = result.replacingOccurrences(of: "{{datetime}}", with: dateFormatter.string(from: now))
+
+        if result.contains("{{clipboard}}") {
+            let current = NSPasteboard.general.string(forType: .string) ?? ""
+            result = result.replacingOccurrences(of: "{{clipboard}}", with: current)
+        }
+
+        return result
+    }
+
+    // MARK: - Search
+
+    private func selectFirstActionableItem(in menu: NSMenu) {
+        for item in menu.items {
+            if item.isSeparatorItem || !item.isEnabled || item.view != nil { continue }
+            if let content = item.representedObject as? String {
+                menu.cancelTracking()
+                copyToPasteboard(content)
+                return
+            }
+            if item.action == #selector(handleHistoryItem(_:)) {
+                let index = item.tag
+                guard index < dataStore.history.count else { continue }
+                menu.cancelTracking()
+                copyToPasteboard(dataStore.history[index].content)
+                return
+            }
+        }
+    }
+
+    @objc private func searchFieldChanged(_ sender: NSSearchField) {
+        currentFilterText = sender.stringValue
+        guard let menu = sender.enclosingMenuItem?.menu else { return }
+        menu.removeAllItems()
+        buildMenu(menu)
+        DispatchQueue.main.async { [weak self] in
+            self?.searchField?.becomeFirstResponder()
+        }
+    }
+
+    private func matchesFilter(_ snippet: Snippet) -> Bool {
+        snippet.title.localizedCaseInsensitiveContains(currentFilterText) ||
+        snippet.content.localizedCaseInsensitiveContains(currentFilterText)
+    }
+
+    private func folderHasMatchingSnippets(_ folder: SnippetFolder) -> Bool {
+        if folder.snippets.contains(where: { matchesFilter($0) }) { return true }
+        return folder.subfolders.contains(where: { folderHasMatchingSnippets($0) })
     }
 }

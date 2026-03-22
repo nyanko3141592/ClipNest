@@ -17,8 +17,11 @@ final class DataStore: ObservableObject {
 
     var maxHistoryCount: Int {
         let val = UserDefaults.standard.integer(forKey: "maxHistoryCount")
-        return val > 0 ? val : 30
+        return val > 0 ? val : 100
     }
+
+    /// Number of recent history items shown inline in the menu.
+    static let recentHistoryCount = 10
 
     private let historyURL: URL
     private let snippetsURL: URL
@@ -118,6 +121,25 @@ final class DataStore: ObservableObject {
             rootSnippets.removeAll { $0.id == id }
         }
         saveSnippets()
+    }
+
+    func togglePin(snippetID: UUID) {
+        if let i = rootSnippets.firstIndex(where: { $0.id == snippetID }) {
+            rootSnippets[i].isPinned.toggle()
+        } else {
+            mutateSnippet(in: &rootFolders, id: snippetID) { $0.isPinned.toggle() }
+        }
+        saveSnippets()
+    }
+
+    var pinnedSnippets: [Snippet] {
+        let fromRoot = rootSnippets.filter(\.isPinned)
+        let fromFolders = collectPinned(in: rootFolders)
+        return fromRoot + fromFolders
+    }
+
+    private func collectPinned(in folders: [SnippetFolder]) -> [Snippet] {
+        folders.flatMap { $0.snippets.filter(\.isPinned) + collectPinned(in: $0.subfolders) }
     }
 
     func renameSnippet(id: UUID, title: String) {

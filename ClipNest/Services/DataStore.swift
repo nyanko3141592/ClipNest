@@ -25,6 +25,7 @@ final class DataStore: ObservableObject {
 
     private let historyURL: URL
     private let snippetsURL: URL
+    let imagesDirectoryURL: URL
 
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -32,6 +33,8 @@ final class DataStore: ObservableObject {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         historyURL = dir.appendingPathComponent("history.json")
         snippetsURL = dir.appendingPathComponent("snippets.json")
+        imagesDirectoryURL = dir.appendingPathComponent("images", isDirectory: true)
+        try? FileManager.default.createDirectory(at: imagesDirectoryURL, withIntermediateDirectories: true)
         load()
     }
 
@@ -39,9 +42,18 @@ final class DataStore: ObservableObject {
 
     func addHistoryItem(_ item: ClipboardItem) {
         DispatchQueue.main.async { [self] in
-            history.removeAll { $0.content == item.content }
+            if item.isImage {
+                // For images, remove previous entry with same file name
+                let removed = history.filter { $0.imageFileName == item.imageFileName && $0.id != item.id }
+                history.removeAll { $0.imageFileName == item.imageFileName }
+                cleanupImageFiles(for: removed)
+            } else {
+                history.removeAll { !$0.isImage && $0.content == item.content }
+            }
             history.insert(item, at: 0)
             if history.count > maxHistoryCount {
+                let trimmed = Array(history.suffix(from: maxHistoryCount))
+                cleanupImageFiles(for: trimmed)
                 history = Array(history.prefix(maxHistoryCount))
             }
             save(history, to: historyURL)
@@ -49,8 +61,34 @@ final class DataStore: ObservableObject {
     }
 
     func clearHistory() {
+        cleanupImageFiles(for: history)
         history.removeAll()
         save(history, to: historyURL)
+    }
+
+    // MARK: - Image Files
+
+    func saveImageData(_ data: Data) -> String? {
+        let fileName = UUID().uuidString + ".png"
+        let fileURL = imagesDirectoryURL.appendingPathComponent(fileName)
+        do {
+            try data.write(to: fileURL)
+            return fileName
+        } catch {
+            return nil
+        }
+    }
+
+    func imageURL(for fileName: String) -> URL {
+        imagesDirectoryURL.appendingPathComponent(fileName)
+    }
+
+    private func cleanupImageFiles(for items: [ClipboardItem]) {
+        for item in items {
+            guard let fileName = item.imageFileName else { continue }
+            let fileURL = imagesDirectoryURL.appendingPathComponent(fileName)
+            try? FileManager.default.removeItem(at: fileURL)
+        }
     }
 
     // MARK: - Folders

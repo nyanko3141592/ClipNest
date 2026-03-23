@@ -37,18 +37,36 @@ final class ClipboardMonitor {
         guard currentCount != lastChangeCount else { return }
         lastChangeCount = currentCount
 
-        guard let string = NSPasteboard.general.string(forType: .string),
-              !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
-        }
-
-        if dataStore.history.first?.content == string { return }
-
+        let pb = NSPasteboard.general
         let frontmost = NSWorkspace.shared.frontmostApplication
         let appName = frontmost?.localizedName
         let bundleID = frontmost?.bundleIdentifier
-        dataStore.addHistoryItem(ClipboardItem(content: string, sourceAppName: appName, sourceAppBundleID: bundleID))
 
+        // Check for text first
+        if let string = pb.string(forType: .string),
+           !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if dataStore.history.first?.content == string { return }
+            dataStore.addHistoryItem(ClipboardItem(content: string, sourceAppName: appName, sourceAppBundleID: bundleID))
+            playCopySoundIfEnabled()
+            return
+        }
+
+        // Check for image
+        let imageTypes: [NSPasteboard.PasteboardType] = [.png, .tiff]
+        for type in imageTypes {
+            if let imgData = pb.data(forType: type) {
+                guard let bitmapRep = NSBitmapImageRep(data: imgData),
+                      let pngData = bitmapRep.representation(using: .png, properties: [:]) else { continue }
+                if let fileName = dataStore.saveImageData(pngData) {
+                    dataStore.addHistoryItem(ClipboardItem(imageFileName: fileName, sourceAppName: appName, sourceAppBundleID: bundleID))
+                    playCopySoundIfEnabled()
+                }
+                return
+            }
+        }
+    }
+
+    private func playCopySoundIfEnabled() {
         if UserDefaults.standard.bool(forKey: "playCopySound") {
             NSSound(named: "Tink")?.play()
         }

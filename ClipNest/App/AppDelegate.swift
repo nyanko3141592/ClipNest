@@ -85,7 +85,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             panel.onSelectHistory = { [weak self] index in
                 guard let self = self, index < self.dataStore.history.count else { return }
-                self.copyToPasteboard(self.dataStore.history[index].content)
+                let item = self.dataStore.history[index]
+                if item.isImage {
+                    self.copyImageToPasteboard(item)
+                } else {
+                    self.copyToPasteboard(item.content)
+                }
             }
             popupPanel = panel
         }
@@ -189,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let recentCount = DataStore.recentHistoryCount
         let allIndexed = Array(history.prefix(dataStore.maxHistoryCount).enumerated())
         let filteredHistory = isFiltering
-            ? allIndexed.filter { $0.element.content.localizedCaseInsensitiveContains(currentFilterText) }
+            ? allIndexed.filter { $0.element.isImage ? "[Image]".localizedCaseInsensitiveContains(currentFilterText) : $0.element.content.localizedCaseInsensitiveContains(currentFilterText) }
             : allIndexed
 
         if !filteredHistory.isEmpty {
@@ -346,7 +351,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func handleHistoryItem(_ sender: NSMenuItem) {
         let index = sender.tag
         guard index < dataStore.history.count else { return }
-        copyToPasteboard(dataStore.history[index].content)
+        let item = dataStore.history[index]
+        if item.isImage {
+            copyImageToPasteboard(item)
+        } else {
+            copyToPasteboard(item.content)
+        }
     }
 
     @objc private func handleSnippetItem(_ sender: NSMenuItem) {
@@ -359,6 +369,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let expanded = expandPlaceholders(in: text)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(expanded, forType: .string)
+
+        let autoPaste = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true
+        guard autoPaste else {
+            clipboardMonitor.resume()
+            previousApp = nil
+            return
+        }
+
+        if let app = previousApp {
+            app.activate()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.simulatePaste()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self?.clipboardMonitor.resume()
+                self?.previousApp = nil
+            }
+        }
+    }
+
+    private func copyImageToPasteboard(_ item: ClipboardItem) {
+        guard let fileName = item.imageFileName else { return }
+        let fileURL = dataStore.imageURL(for: fileName)
+        guard let imageData = try? Data(contentsOf: fileURL) else { return }
+
+        clipboardMonitor.pause()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setData(imageData, forType: .png)
 
         let autoPaste = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true
         guard autoPaste else {
@@ -483,8 +522,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if item.action == #selector(handleHistoryItem(_:)) {
                 let index = item.tag
                 guard index < dataStore.history.count else { continue }
+                let historyItem = dataStore.history[index]
                 menu.cancelTracking()
-                copyToPasteboard(dataStore.history[index].content)
+                if historyItem.isImage {
+                    copyImageToPasteboard(historyItem)
+                } else {
+                    copyToPasteboard(historyItem.content)
+                }
                 return
             }
         }

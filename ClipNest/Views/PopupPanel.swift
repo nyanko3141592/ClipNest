@@ -7,6 +7,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         case folder(String, UUID, Int, Bool)
         case snippet(String, String, Int)
         case historyItem(String, Int, appName: String?, bundleID: String?)
+        case imageItem(String, Int, appName: String?, bundleID: String?)
         case separator
 
         var isSelectable: Bool {
@@ -28,6 +29,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
     private var clickMonitor: Any?
     private var firstHistoryRow: Int?
     private var iconCache: [String: NSImage] = [:]
+    private var thumbnailCache: [String: NSImage] = [:]
 
     override init(contentRect: NSRect, styleMask s: NSWindow.StyleMask, backing b: NSWindow.BackingStoreType, defer d: Bool) {
         super.init(contentRect: contentRect, styleMask: s, backing: b, defer: d)
@@ -181,6 +183,9 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         case .historyItem(let title, _, let appName, let bundleID):
             let selectableIndex = selectableIndexForRow(row)
             return makeHistoryCell(title, appName: appName, bundleID: bundleID, number: selectableIndex)
+        case .imageItem(let fileName, _, let appName, let bundleID):
+            let selectableIndex = selectableIndexForRow(row)
+            return makeImageCell(fileName, appName: appName, bundleID: bundleID, number: selectableIndex)
         }
     }
 
@@ -192,6 +197,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         if case .separator = rows[row] { return 6 }
         if case .header = rows[row] { return 18 }
         if case .historyItem = rows[row] { return 26 }
+        if case .imageItem = rows[row] { return 36 }
         return 22
     }
 
@@ -282,6 +288,77 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         return h
     }
 
+    private func makeImageCell(_ fileName: String, appName: String?, bundleID: String?, number: Int?) -> NSView {
+        let h = NSStackView()
+        h.orientation = .horizontal
+        h.spacing = 4
+        h.edgeInsets = NSEdgeInsets(top: 2, left: 8, bottom: 2, right: 6)
+
+        // Number indicator (1-9)
+        if let number, number <= 9 {
+            let numLabel = NSTextField(labelWithString: "\(number)")
+            numLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+            numLabel.textColor = .tertiaryLabelColor
+            numLabel.alignment = .center
+            numLabel.setContentHuggingPriority(.required, for: .horizontal)
+            numLabel.widthAnchor.constraint(equalToConstant: 12).isActive = true
+            h.addArrangedSubview(numLabel)
+        } else {
+            let spacer = NSView()
+            spacer.setContentHuggingPriority(.required, for: .horizontal)
+            spacer.widthAnchor.constraint(equalToConstant: 12).isActive = true
+            h.addArrangedSubview(spacer)
+        }
+
+        // App icon
+        if let bundleID, let icon = appIcon(for: bundleID) {
+            let iv = NSImageView(image: icon)
+            iv.setContentHuggingPriority(.required, for: .horizontal)
+            iv.widthAnchor.constraint(equalToConstant: 16).isActive = true
+            iv.heightAnchor.constraint(equalToConstant: 16).isActive = true
+            h.addArrangedSubview(iv)
+        }
+
+        // Thumbnail
+        if let thumb = thumbnail(for: fileName) {
+            let iv = NSImageView(image: thumb)
+            iv.imageScaling = .scaleProportionallyUpOrDown
+            iv.setContentHuggingPriority(.required, for: .horizontal)
+            iv.widthAnchor.constraint(equalToConstant: 28).isActive = true
+            iv.heightAnchor.constraint(equalToConstant: 28).isActive = true
+            iv.wantsLayer = true
+            iv.layer?.cornerRadius = 3
+            iv.layer?.masksToBounds = true
+            h.addArrangedSubview(iv)
+        }
+
+        // Label
+        let l = NSTextField(labelWithString: "[Image]")
+        l.font = .systemFont(ofSize: 12)
+        l.textColor = .secondaryLabelColor
+        l.lineBreakMode = .byTruncatingTail
+        h.addArrangedSubview(l)
+
+        return h
+    }
+
+    private func thumbnail(for fileName: String) -> NSImage? {
+        if let cached = thumbnailCache[fileName] { return cached }
+        guard let ds = dataStore else { return nil }
+        let url = ds.imageURL(for: fileName)
+        guard let image = NSImage(contentsOf: url) else { return nil }
+        let thumb = NSImage(size: NSSize(width: 28, height: 28))
+        thumb.lockFocus()
+        let srcSize = image.size
+        let scale = min(28 / srcSize.width, 28 / srcSize.height)
+        let drawSize = NSSize(width: srcSize.width * scale, height: srcSize.height * scale)
+        let origin = NSPoint(x: (28 - drawSize.width) / 2, y: (28 - drawSize.height) / 2)
+        image.draw(in: NSRect(origin: origin, size: drawSize))
+        thumb.unlockFocus()
+        thumbnailCache[fileName] = thumb
+        return thumb
+    }
+
     // MARK: - App Icon Cache
 
     private func appIcon(for bundleID: String) -> NSImage? {
@@ -333,7 +410,11 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
             result.append(.header("History", "clock"))
             firstHistoryRow = result.count
             for (i, clip) in all {
-                result.append(.historyItem(clip.displayTitle, i, appName: clip.sourceAppName, bundleID: clip.sourceAppBundleID))
+                if let imageFileName = clip.imageFileName {
+                    result.append(.imageItem(imageFileName, i, appName: clip.sourceAppName, bundleID: clip.sourceAppBundleID))
+                } else {
+                    result.append(.historyItem(clip.displayTitle, i, appName: clip.sourceAppName, bundleID: clip.sourceAppBundleID))
+                }
             }
         }
 
@@ -413,6 +494,8 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         case .snippet(_, let content, _):
             dismiss(); onSelectContent?(content)
         case .historyItem(_, let index, _, _):
+            dismiss(); onSelectHistory?(index)
+        case .imageItem(_, let index, _, _):
             dismiss(); onSelectHistory?(index)
         case .folder(_, let id, _, let expanded):
             if expanded { expandedFolders.remove(id) } else { expandedFolders.insert(id) }

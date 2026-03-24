@@ -180,6 +180,42 @@ final class DataStore: ObservableObject {
         folders.flatMap { $0.snippets.filter(\.isPinned) + collectPinned(in: $0.subfolders) }
     }
 
+    func moveSnippet(id: UUID, toFolderID: UUID?) {
+        var snippet: Snippet?
+        if let i = rootSnippets.firstIndex(where: { $0.id == id }) {
+            snippet = rootSnippets.remove(at: i)
+        } else {
+            snippet = Self.removeSnippet(from: &rootFolders, id: id)
+        }
+        guard var s = snippet else { return }
+
+        if let targetID = toFolderID {
+            mutateFolder(id: targetID) { folder in
+                s.order = folder.snippets.count
+                folder.snippets.append(s)
+            }
+        } else {
+            s.order = rootSnippets.count
+            rootSnippets.append(s)
+        }
+        saveSnippets()
+    }
+
+    func duplicateSnippet(id: UUID) {
+        guard let original = findSnippet(id: id) else { return }
+        let parentID = findParentFolderID(ofSnippet: id)
+        addSnippet(title: original.title + " (Copy)", content: original.content, folderID: parentID)
+    }
+
+    func updateSnippetIcon(id: UUID, icon: String?) {
+        if let i = rootSnippets.firstIndex(where: { $0.id == id }) {
+            rootSnippets[i].icon = icon
+        } else {
+            mutateSnippet(in: &rootFolders, id: id) { $0.icon = icon }
+        }
+        saveSnippets()
+    }
+
     func renameSnippet(id: UUID, title: String) {
         if let i = rootSnippets.firstIndex(where: { $0.id == id }) {
             rootSnippets[i].title = title
@@ -187,6 +223,53 @@ final class DataStore: ObservableObject {
             mutateSnippet(in: &rootFolders, id: id) { $0.title = title }
         }
         saveSnippets()
+    }
+
+    func moveFolder(id: UUID, toParentID: UUID?) {
+        var folder: SnippetFolder?
+        folder = Self.removeAndReturnFolder(from: &rootFolders, id: id)
+        guard var f = folder else { return }
+
+        if let parentID = toParentID {
+            mutateFolder(id: parentID) { parent in
+                f.order = parent.subfolders.count
+                parent.subfolders.append(f)
+            }
+        } else {
+            f.order = rootFolders.count
+            rootFolders.append(f)
+        }
+        saveSnippets()
+    }
+
+    /// Returns all folders as a flat list with their display paths.
+    func allFolderPaths() -> [(id: UUID, path: String)] {
+        var result: [(id: UUID, path: String)] = []
+        collectFolderPaths(in: rootFolders, parentPath: "", into: &result)
+        return result
+    }
+
+    private func collectFolderPaths(in folders: [SnippetFolder], parentPath: String, into result: inout [(id: UUID, path: String)]) {
+        for folder in folders.sorted(by: { $0.order < $1.order }) {
+            let path = parentPath.isEmpty ? folder.title : "\(parentPath) / \(folder.title)"
+            result.append((folder.id, path))
+            collectFolderPaths(in: folder.subfolders, parentPath: path, into: &result)
+        }
+    }
+
+    /// Returns all descendant folder IDs of the given folder (including itself).
+    func descendantFolderIDs(of folderID: UUID) -> Set<UUID> {
+        guard let folder = findFolder(id: folderID) else { return [folderID] }
+        var ids: Set<UUID> = [folderID]
+        collectDescendantIDs(in: folder.subfolders, into: &ids)
+        return ids
+    }
+
+    private func collectDescendantIDs(in folders: [SnippetFolder], into ids: inout Set<UUID>) {
+        for folder in folders {
+            ids.insert(folder.id)
+            collectDescendantIDs(in: folder.subfolders, into: &ids)
+        }
     }
 
     // MARK: - Find
@@ -285,6 +368,30 @@ final class DataStore: ObservableObject {
             }
             mutateSnippet(in: &folders[i].subfolders, id: id, mutation: mutation)
         }
+    }
+
+    private static func removeSnippet(from folders: inout [SnippetFolder], id: UUID) -> Snippet? {
+        for i in folders.indices {
+            if let j = folders[i].snippets.firstIndex(where: { $0.id == id }) {
+                return folders[i].snippets.remove(at: j)
+            }
+            if let found = removeSnippet(from: &folders[i].subfolders, id: id) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    private static func removeAndReturnFolder(from folders: inout [SnippetFolder], id: UUID) -> SnippetFolder? {
+        if let i = folders.firstIndex(where: { $0.id == id }) {
+            return folders.remove(at: i)
+        }
+        for i in folders.indices {
+            if let found = removeAndReturnFolder(from: &folders[i].subfolders, id: id) {
+                return found
+            }
+        }
+        return nil
     }
 
     private func removeFolder(from folders: inout [SnippetFolder], id: UUID) {

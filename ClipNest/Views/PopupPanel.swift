@@ -5,7 +5,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
     enum Row {
         case header(String, String?)
         case folder(String, UUID, Int, Bool)
-        case snippet(String, String, Int)
+        case snippet(String, String, Int, icon: String)
         case historyItem(String, Int, appName: String?, bundleID: String?)
         case imageItem(String, Int, appName: String?, bundleID: String?)
         case separator
@@ -101,6 +101,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
 
     func showAt(_ point: NSPoint, dataStore: DataStore) {
         self.dataStore = dataStore
+        expandedFolders.removeAll()
         rebuildRows()
         tableView.reloadData()
 
@@ -178,8 +179,8 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         case .folder(let title, _, let depth, let expanded):
             let arrow = expanded ? "▾" : "▸"
             return makeCell("\(arrow) \(title)", depth: depth, icon: expanded ? "folder.fill" : "folder", dim: false)
-        case .snippet(let title, _, let depth):
-            return makeCell(title, depth: depth, icon: nil, dim: false)
+        case .snippet(let title, _, let depth, let icon):
+            return makeCell(title, depth: depth, icon: icon, dim: false)
         case .historyItem(let title, _, let appName, let bundleID):
             let selectableIndex = selectableIndexForRow(row)
             return makeHistoryCell(title, appName: appName, bundleID: bundleID, number: selectableIndex)
@@ -388,7 +389,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
         let pinned = ds.pinnedSnippets
         if !pinned.isEmpty {
             result.append(.header("Pinned", "pin.fill"))
-            for s in pinned { result.append(.snippet(s.title, s.content, 0)) }
+            for s in pinned { result.append(.snippet(s.title, s.content, 0, icon: s.resolvedIcon)) }
             result.append(.separator)
         }
 
@@ -399,7 +400,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
                 addFolderRows(f, depth: 0, into: &result)
             }
             for s in rootSnippets.sorted(by: { $0.order < $1.order }) {
-                result.append(.snippet(s.title, s.content, 0))
+                result.append(.snippet(s.title, s.content, 0, icon: s.resolvedIcon))
             }
             result.append(.separator)
         }
@@ -429,7 +430,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
             addFolderRows(sub, depth: depth + 1, into: &result)
         }
         for s in folder.snippets.sorted(by: { $0.order < $1.order }) {
-            result.append(.snippet(s.title, s.content, depth + 1))
+            result.append(.snippet(s.title, s.content, depth + 1, icon: s.resolvedIcon))
         }
     }
 
@@ -491,7 +492,7 @@ final class PopupPanel: NSPanel, NSTableViewDataSource, NSTableViewDelegate {
     private func activateRow(_ row: Int) {
         guard row >= 0, row < rows.count else { return }
         switch rows[row] {
-        case .snippet(_, let content, _):
+        case .snippet(_, let content, _, _):
             dismiss(); onSelectContent?(content)
         case .historyItem(_, let index, _, _):
             dismiss(); onSelectHistory?(index)

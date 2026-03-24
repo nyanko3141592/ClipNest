@@ -143,18 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             header.isEnabled = false
             menu.addItem(header)
             for snippet in filteredPinned {
-                let item = NSMenuItem(
-                    title: snippet.title,
-                    action: #selector(handleSnippetItem(_:)),
-                    keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
-                )
-                if shortcutIndex <= 9 {
-                    item.keyEquivalentModifierMask = .command
-                    shortcutIndex += 1
-                }
-                item.target = self
-                item.representedObject = snippet.content
-                menu.addItem(item)
+                menu.addItem(makeSnippetMenuItem(snippet, shortcutIndex: &shortcutIndex))
             }
             menu.addItem(.separator())
         }
@@ -172,18 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     menu.addItem(buildFolderMenuItem(folder, shortcutIndex: &shortcutIndex))
                 }
                 for snippet in rootSnippets.sorted(by: { $0.order < $1.order }) {
-                    let item = NSMenuItem(
-                        title: snippet.title,
-                        action: #selector(handleSnippetItem(_:)),
-                        keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
-                    )
-                    if shortcutIndex <= 9 {
-                        item.keyEquivalentModifierMask = .command
-                        shortcutIndex += 1
-                    }
-                    item.target = self
-                    item.representedObject = snippet.content
-                    menu.addItem(item)
+                    menu.addItem(makeSnippetMenuItem(snippet, shortcutIndex: &shortcutIndex))
                 }
             }
             menu.addItem(.separator())
@@ -278,18 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         for snippet in folder.snippets.sorted(by: { $0.order < $1.order }) {
-            let snippetItem = NSMenuItem(
-                title: snippet.title,
-                action: #selector(handleSnippetItem(_:)),
-                keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
-            )
-            if shortcutIndex <= 9 {
-                snippetItem.keyEquivalentModifierMask = .command
-                shortcutIndex += 1
-            }
-            snippetItem.target = self
-            snippetItem.representedObject = snippet.content
-            submenu.addItem(snippetItem)
+            submenu.addItem(makeSnippetMenuItem(snippet, shortcutIndex: &shortcutIndex))
         }
 
         if submenu.items.isEmpty {
@@ -309,18 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         for snippet in rootSnippets.sorted(by: { $0.order < $1.order }) {
             if !matchesFilter(snippet) { continue }
-            let item = NSMenuItem(
-                title: snippet.title,
-                action: #selector(handleSnippetItem(_:)),
-                keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
-            )
-            if shortcutIndex <= 9 {
-                item.keyEquivalentModifierMask = .command
-                shortcutIndex += 1
-            }
-            item.target = self
-            item.representedObject = snippet.content
-            menu.addItem(item)
+            menu.addItem(makeSnippetMenuItem(snippet, shortcutIndex: &shortcutIndex))
         }
     }
 
@@ -329,18 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let folderPath = path.isEmpty ? folder.title : "\(path)/\(folder.title)"
             for snippet in folder.snippets.sorted(by: { $0.order < $1.order }) {
                 if !matchesFilter(snippet) { continue }
-                let item = NSMenuItem(
-                    title: "\(folderPath) › \(snippet.title)",
-                    action: #selector(handleSnippetItem(_:)),
-                    keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
-                )
-                if shortcutIndex <= 9 {
-                    item.keyEquivalentModifierMask = .command
-                    shortcutIndex += 1
-                }
-                item.target = self
-                item.representedObject = snippet.content
-                menu.addItem(item)
+                menu.addItem(makeSnippetMenuItem(snippet, title: "\(folderPath) › \(snippet.title)", shortcutIndex: &shortcutIndex))
             }
             collectMatchingSnippets(from: folder.subfolders, path: folderPath, to: menu, shortcutIndex: &shortcutIndex)
         }
@@ -542,6 +487,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.async { [weak self] in
             self?.searchField?.becomeFirstResponder()
         }
+    }
+
+    private func makeSnippetMenuItem(_ snippet: Snippet, title: String? = nil, shortcutIndex: inout Int) -> NSMenuItem {
+        let item = NSMenuItem(
+            title: title ?? snippet.title,
+            action: #selector(handleSnippetItem(_:)),
+            keyEquivalent: shortcutIndex <= 9 ? "\(shortcutIndex)" : ""
+        )
+        if shortcutIndex <= 9 {
+            item.keyEquivalentModifierMask = .command
+            shortcutIndex += 1
+        }
+        item.target = self
+        item.representedObject = snippet.content
+        item.image = NSImage(systemSymbolName: snippet.resolvedIcon, accessibilityDescription: nil)
+        return item
     }
 
     private func matchesFilter(_ snippet: Snippet) -> Bool {

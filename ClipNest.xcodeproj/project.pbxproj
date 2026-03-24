@@ -16,6 +16,8 @@
 		FA0000000000000000000107 /* SnippetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000007 /* SnippetEditorView.swift */; };
 		FA0000000000000000000108 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000008 /* SettingsView.swift */; };
 		FA0000000000000000000109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000009 /* Assets.xcassets */; };
+		FA000000000000000000010A /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA000000000000000000000D /* HotkeyManager.swift */; };
+		FA000000000000000000010B /* PopupPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA000000000000000000000E /* PopupPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +33,8 @@
 		FA000000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FA000000000000000000000B /* ClipNest.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClipNest.entitlements; sourceTree = "<group>"; };
 		FA000000000000000000000C /* ClipNest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClipNest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA000000000000000000000D /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
+		FA000000000000000000000E /* PopupPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,6 +93,7 @@
 			children = (
 				FA0000000000000000000005 /* ClipboardMonitor.swift */,
 				FA0000000000000000000006 /* DataStore.swift */,
+				FA000000000000000000000D /* HotkeyManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -98,6 +103,7 @@
 			children = (
 				FA0000000000000000000007 /* SnippetEditorView.swift */,
 				FA0000000000000000000008 /* SettingsView.swift */,
+				FA000000000000000000000E /* PopupPanel.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -182,6 +188,8 @@
 				FA0000000000000000000106 /* DataStore.swift in Sources */,
 				FA0000000000000000000107 /* SnippetEditorView.swift in Sources */,
 				FA0000000000000000000108 /* SettingsView.swift in Sources */,
+				FA000000000000000000010A /* HotkeyManager.swift in Sources */,
+				FA000000000000000000010B /* PopupPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

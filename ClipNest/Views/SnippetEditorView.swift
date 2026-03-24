@@ -114,6 +114,7 @@ struct SnippetEditorView: View {
                         FolderBranch(
                             folder: folder,
                             selectedID: selectedID,
+                            allFolders: dataStore.allFolderPaths(),
                             onSelectFolder: { id in selectFolder(id) },
                             onSelectSnippet: { snippet in selectSnippet(snippet) },
                             onAddSnippet: { folderID in addSnippetTo(folderID) },
@@ -131,7 +132,14 @@ struct SnippetEditorView: View {
                                 deleteIsFolder = isFolder
                                 showDeleteConfirm = true
                             },
-                            onTogglePin: { id in dataStore.togglePin(snippetID: id) }
+                            onTogglePin: { id in dataStore.togglePin(snippetID: id) },
+                            onMoveSnippet: { snippetID, folderID in
+                                dataStore.moveSnippet(id: snippetID, toFolderID: folderID)
+                            },
+                            onDuplicateSnippet: { id in dataStore.duplicateSnippet(id: id) },
+                            onMoveFolder: { folderID, parentID in
+                                dataStore.moveFolder(id: folderID, toParentID: parentID)
+                            }
                         )
                     }
                     // Root-level snippets
@@ -144,7 +152,7 @@ struct SnippetEditorView: View {
 
             Divider()
 
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Button(action: addRootFolder) {
                     Label("Folder", systemImage: "folder.badge.plus")
                 }
@@ -173,6 +181,7 @@ struct SnippetEditorView: View {
                 }
                 .help("Export Snippets (JSON)")
             }
+            .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -181,7 +190,7 @@ struct SnippetEditorView: View {
     }
 
     private func rootSnippetRow(_ snippet: Snippet) -> some View {
-        Label(snippet.title, systemImage: "doc.text")
+        Label(snippet.title, systemImage: snippet.resolvedIcon)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture { selectSnippet(snippet) }
@@ -193,6 +202,17 @@ struct SnippetEditorView: View {
             .contextMenu {
                 Button(snippet.isPinned ? "Unpin" : "Pin") {
                     dataStore.togglePin(snippetID: snippet.id)
+                }
+                Button("Duplicate") {
+                    dataStore.duplicateSnippet(id: snippet.id)
+                }
+                Divider()
+                Menu("Move to...") {
+                    ForEach(dataStore.allFolderPaths(), id: \.id) { f in
+                        Button(f.path) {
+                            dataStore.moveSnippet(id: snippet.id, toFolderID: f.id)
+                        }
+                    }
                 }
                 Button("Rename...") {
                     renameTargetID = snippet.id
@@ -213,9 +233,36 @@ struct SnippetEditorView: View {
 
     private var detail: some View {
         Group {
-            if selectedSnippet != nil {
+            if let currentSnippet = selectedSnippet {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack {
+                    HStack(spacing: 8) {
+                        Menu {
+                            Button {
+                                dataStore.updateSnippetIcon(id: currentSnippet.id, icon: nil)
+                            } label: {
+                                Label("Auto", systemImage: Snippet.autoDetectIcon(for: currentSnippet.content))
+                            }
+                            Divider()
+                            ForEach(SnippetIconPicker.categories, id: \.name) { cat in
+                                Menu(cat.name) {
+                                    ForEach(cat.icons, id: \.self) { iconName in
+                                        Button {
+                                            dataStore.updateSnippetIcon(id: currentSnippet.id, icon: iconName)
+                                        } label: {
+                                            Label(iconName, systemImage: iconName)
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: currentSnippet.resolvedIcon)
+                                .font(.title3)
+                                .frame(width: 24, height: 24)
+                                .foregroundStyle(.secondary)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+
                         TextField("Title", text: $editTitle)
                             .textFieldStyle(.plain)
                             .font(.title3.bold())
@@ -389,6 +436,7 @@ struct SnippetEditorView: View {
 private struct FolderBranch: View {
     let folder: SnippetFolder
     let selectedID: UUID?
+    let allFolders: [(id: UUID, path: String)]
     let onSelectFolder: (UUID) -> Void
     let onSelectSnippet: (Snippet) -> Void
     let onAddSnippet: (UUID) -> Void
@@ -396,6 +444,9 @@ private struct FolderBranch: View {
     let onRename: (UUID, Bool, String) -> Void
     let onDelete: (UUID, Bool) -> Void
     let onTogglePin: (UUID) -> Void
+    let onMoveSnippet: (UUID, UUID?) -> Void
+    let onDuplicateSnippet: (UUID) -> Void
+    let onMoveFolder: (UUID, UUID?) -> Void
 
     var body: some View {
         DisclosureGroup {
@@ -403,13 +454,17 @@ private struct FolderBranch: View {
                 FolderBranch(
                     folder: subfolder,
                     selectedID: selectedID,
+                    allFolders: allFolders,
                     onSelectFolder: onSelectFolder,
                     onSelectSnippet: onSelectSnippet,
                     onAddSnippet: onAddSnippet,
                     onAddSubfolder: onAddSubfolder,
                     onRename: onRename,
                     onDelete: onDelete,
-                    onTogglePin: onTogglePin
+                    onTogglePin: onTogglePin,
+                    onMoveSnippet: onMoveSnippet,
+                    onDuplicateSnippet: onDuplicateSnippet,
+                    onMoveFolder: onMoveFolder
                 )
             }
             ForEach(folder.snippets.sorted(by: { $0.order < $1.order })) { snippet in
@@ -430,6 +485,13 @@ private struct FolderBranch: View {
                 Button("Add Snippet") { onAddSnippet(folder.id) }
                 Button("Add Subfolder") { onAddSubfolder(folder.id) }
                 Divider()
+                Menu("Move to...") {
+                    Button("Root") { onMoveFolder(folder.id, nil) }
+                    Divider()
+                    ForEach(allFolders.filter { $0.id != folder.id }, id: \.id) { f in
+                        Button(f.path) { onMoveFolder(folder.id, f.id) }
+                    }
+                }
                 Button("Rename...") { onRename(folder.id, true, folder.title) }
                 Divider()
                 Button("Delete", role: .destructive) { onDelete(folder.id, true) }
@@ -437,7 +499,7 @@ private struct FolderBranch: View {
     }
 
     private func snippetRow(_ snippet: Snippet) -> some View {
-        Label(snippet.title, systemImage: "doc.text")
+        Label(snippet.title, systemImage: snippet.resolvedIcon)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture { onSelectSnippet(snippet) }
@@ -448,6 +510,15 @@ private struct FolderBranch: View {
             )
             .contextMenu {
                 Button(snippet.isPinned ? "Unpin" : "Pin") { onTogglePin(snippet.id) }
+                Button("Duplicate") { onDuplicateSnippet(snippet.id) }
+                Divider()
+                Menu("Move to...") {
+                    Button("Root") { onMoveSnippet(snippet.id, nil) }
+                    Divider()
+                    ForEach(allFolders, id: \.id) { f in
+                        Button(f.path) { onMoveSnippet(snippet.id, f.id) }
+                    }
+                }
                 Button("Rename...") { onRename(snippet.id, false, snippet.title) }
                 Divider()
                 Button("Delete", role: .destructive) { onDelete(snippet.id, false) }
@@ -472,4 +543,44 @@ struct SnippetExportDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
     }
+}
+
+// MARK: - Icon Picker Data
+
+enum SnippetIconPicker {
+    struct Category {
+        let name: String
+        let icons: [String]
+    }
+
+    static let categories: [Category] = [
+        Category(name: "General", icons: [
+            "doc.text", "doc.text.fill", "note.text", "text.alignleft",
+            "list.bullet", "list.number", "text.quote", "bookmark",
+            "star", "heart", "flag", "tag",
+        ]),
+        Category(name: "Communication", icons: [
+            "envelope", "envelope.fill", "phone", "phone.fill",
+            "message", "bubble.left", "at", "paperplane",
+        ]),
+        Category(name: "Web & Links", icons: [
+            "link", "globe", "safari", "network",
+            "cloud", "antenna.radiowaves.left.and.right",
+        ]),
+        Category(name: "Code & Dev", icons: [
+            "chevron.left.forwardslash.chevron.right", "terminal",
+            "curlybraces", "number", "function",
+            "cpu", "memorychip", "externaldrive",
+        ]),
+        Category(name: "Media", icons: [
+            "photo", "camera", "video", "music.note",
+            "paintbrush", "eyedropper",
+        ]),
+        Category(name: "Objects", icons: [
+            "key", "lock", "creditcard", "cart",
+            "house", "building.2", "map", "location",
+            "calendar", "clock", "alarm",
+            "person", "person.2", "gearshape",
+        ]),
+    ]
 }

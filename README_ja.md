@@ -41,22 +41,25 @@
 | Swift | 5.9 以上 |
 | 権限 | アクセシビリティ (初回起動時にプロンプト表示) |
 
-## ビルドとインストール
+## インストール
 
-**ソースからビルド:**
+### ダウンロード（おすすめ）
+
+1. [最新リリース](https://github.com/nyanko3141592/ClipNest/releases/latest)から `ClipNest.dmg` をダウンロード
+2. DMGを開き、`ClipNest.app` を `Applications` にドラッグ
+3. このアプリはApple公証を受けていないため、macOSがブロックすることがあります。ターミナルで以下を実行:
+   ```bash
+   xattr -cr /Applications/ClipNest.app
+   ```
+4. Applicationsから ClipNest を開き、アクセシビリティ権限を許可
+
+### ソースからビルド
 
 ```bash
-swift build -c release
+git clone https://github.com/nyanko3141592/ClipNest.git
+cd ClipNest
 bash scripts/build-app.sh
-```
-
-プロジェクトルートに `ClipNest.app` が生成されます。
-
-**インストール:**
-
-```bash
 cp -r ClipNest.app /Applications/
-open /Applications/ClipNest.app
 ```
 
 ## 使い方

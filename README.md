@@ -41,22 +41,25 @@
 | Swift | 5.9+ |
 | Permissions | Accessibility (prompted on first launch) |
 
-## Build & Install
+## Install
 
-**Build from source:**
+### Download (recommended)
+
+1. Download `ClipNest.dmg` from the [latest release](https://github.com/nyanko3141592/ClipNest/releases/latest)
+2. Open the DMG and drag `ClipNest.app` to `Applications`
+3. Since this app is not notarized, macOS may block it. Run in Terminal:
+   ```bash
+   xattr -cr /Applications/ClipNest.app
+   ```
+4. Open ClipNest from Applications and grant Accessibility permission when prompted
+
+### Build from source
 
 ```bash
-swift build -c release
+git clone https://github.com/nyanko3141592/ClipNest.git
+cd ClipNest
 bash scripts/build-app.sh
-```
-
-This creates `ClipNest.app` in the project root.
-
-**Install:**
-
-```bash
 cp -r ClipNest.app /Applications/
-open /Applications/ClipNest.app
 ```
 
 ## Usage

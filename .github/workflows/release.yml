@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release app bundle & DMG
+        run: bash scripts/build-app.sh
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            ClipNest.dmg ClipNest.zip
+
+  update-cask:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for release assets to be available
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in $(seq 1 30); do
+            URL=$(gh api repos/${{ github.repository }}/releases/tags/${{ github.ref_name }} \
+              --jq '.assets[] | select(.name == "ClipNest.dmg") | .browser_download_url' 2>/dev/null || true)
+            if [ -n "$URL" ]; then
+              echo "DMG asset available: $URL"
+              break
+            fi
+            echo "Waiting for release asset... ($i/30)"
+            sleep 10
+          done
+
+      - name: Get release info
+        id: info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/ClipNest.dmg"
+          curl -fSL -o ClipNest.dmg "$DMG_URL"
+          SHA256=$(shasum -a 256 ClipNest.dmg | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nyanko3141592/homebrew-tap
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Cask formula
+        run: |
+          cat > homebrew-tap/Casks/clipnest.rb << 'CASK'
+          cask "clipnest" do
+            version "VERSION_PLACEHOLDER"
+            sha256 "SHA256_PLACEHOLDER"
+
+            url "https://github.com/nyanko3141592/ClipNest/releases/download/v#{version}/ClipNest.dmg"
+            name "ClipNest"
+            desc "Lightweight macOS menu bar clipboard manager with snippet support"
+            homepage "https://github.com/nyanko3141592/ClipNest"
+
+            depends_on macos: ">= :ventura"
+            depends_on arch: :arm64
+
+            app "ClipNest.app"
+
+            zap trash: [
+              "~/Library/Application Support/ClipNest",
+              "~/Library/LaunchAgents/com.clipnest.app.plist",
+              "~/Library/Preferences/com.clipnest.app.plist",
+            ]
+          end
+          CASK
+
+          sed -i "s/VERSION_PLACEHOLDER/${{ steps.info.outputs.version }}/" homebrew-tap/Casks/clipnest.rb
+          sed -i "s/SHA256_PLACEHOLDER/${{ steps.info.outputs.sha256 }}/" homebrew-tap/Casks/clipnest.rb
+
+      - name: Commit and push to tap
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/clipnest.rb
+          git commit -m "Update clipnest to ${{ steps.info.outputs.version }}"
+          git push

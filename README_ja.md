@@ -43,7 +43,18 @@
 
 ## インストール
 
-### ダウンロード（おすすめ）
+### Homebrew（おすすめ）
+
+```bash
+brew install nyanko3141592/tap/clipnest
+```
+
+> **注意:** このアプリはApple公証を受けていません。インストール後に以下を実行してください:
+> ```bash
+> xattr -cr /Applications/ClipNest.app
+> ```
+
+### ダウンロード
 
 1. [最新リリース](https://github.com/nyanko3141592/ClipNest/releases/latest)から `ClipNest.dmg` をダウンロード
 2. DMGを開き、`ClipNest.app` を `Applications` にドラッグ

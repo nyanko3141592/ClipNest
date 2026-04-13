@@ -43,7 +43,18 @@
 
 ## Install
 
-### Download (recommended)
+### Homebrew (recommended)
+
+```bash
+brew install nyanko3141592/tap/clipnest
+```
+
+> **Note:** This app is not notarized. After installation, run:
+> ```bash
+> xattr -cr /Applications/ClipNest.app
+> ```
+
+### Download
 
 1. Download `ClipNest.dmg` from the [latest release](https://github.com/nyanko3141592/ClipNest/releases/latest)
 2. Open the DMG and drag `ClipNest.app` to `Applications`

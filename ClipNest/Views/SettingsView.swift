@@ -6,8 +6,8 @@ struct SettingsView: View {
     @AppStorage("autoPaste") private var autoPaste = true
     @AppStorage("playCopySound") private var playCopySound = true
     @AppStorage("maxHistoryCount") private var maxHistoryCount = 30
-    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode = 9       // V
-    @AppStorage("hotkeyModifiers") private var hotkeyModifiers = 768 // Cmd+Shift
+    @AppStorage("hotkeyKeyCode") private var hotkeyKeyCode = 9        // V
+    @AppStorage("hotkeyModifiers") private var hotkeyModifiers = 2048 // optionKey
     @State private var isRecording = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 

@@ -32,6 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var popupPanel: PopupPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: [
+            "hotkeyKeyCode": 9,        // V
+            "hotkeyModifiers": 2048,   // optionKey
+            "autoPaste": true,
+            "playCopySound": true,
+            "maxHistoryCount": 30,
+        ])
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "paperclip", accessibilityDescription: "ClipNest")
@@ -379,47 +387,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openSnippetEditor() {
-        if let window = snippetWindow, window.isVisible {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            let view = SnippetEditorView(dataStore: dataStore)
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
-                styleMask: [.titled, .closable, .resizable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.isReleasedWhenClosed = false
-            window.title = "Edit Snippets"
-            window.contentView = NSHostingView(rootView: view)
-            window.center()
-            window.setFrameAutosaveName("SnippetEditor")
-            snippetWindow = window
-            window.makeKeyAndOrderFront(nil)
-        }
         activateApp()
+        if let window = snippetWindow {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.title = "Edit Snippets"
+        window.contentView = NSHostingView(rootView: SnippetEditorView(dataStore: dataStore))
+        window.center()
+        window.setFrameAutosaveName("SnippetEditor")
+        snippetWindow = window
+        window.makeKeyAndOrderFront(nil)
     }
 
     @objc private func openSettings() {
         activateApp()
-        if let window = settingsWindow, window.isVisible {
+        if let window = settingsWindow {
             window.makeKeyAndOrderFront(nil)
-        } else {
-            let view = SettingsView()
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 350, height: 150),
-                styleMask: [.titled, .closable],
-                backing: .buffered,
-                defer: false
-            )
-            window.isReleasedWhenClosed = false
-            window.title = "ClipNest Settings"
-            window.contentView = NSHostingView(rootView: view)
-            window.center()
-            window.level = .floating
-            settingsWindow = window
-            window.makeKeyAndOrderFront(nil)
+            return
         }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 350, height: 150),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.title = "ClipNest Settings"
+        window.contentView = NSHostingView(rootView: SettingsView())
+        window.center()
+        window.level = .floating
+        settingsWindow = window
+        window.makeKeyAndOrderFront(nil)
     }
 
     private func activateApp() {

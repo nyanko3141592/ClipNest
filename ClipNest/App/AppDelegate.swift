@@ -392,15 +392,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
+        let controller = NSHostingController(rootView: SnippetEditorView(dataStore: dataStore))
+        let window = NSWindow(contentViewController: controller)
+        window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
         window.isReleasedWhenClosed = false
         window.title = "Edit Snippets"
-        window.contentView = NSHostingView(rootView: SnippetEditorView(dataStore: dataStore))
+        window.setContentSize(NSSize(width: 700, height: 500))
         window.center()
         window.setFrameAutosaveName("SnippetEditor")
         snippetWindow = window
@@ -413,17 +410,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 350, height: 150),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
+        let controller = NSHostingController(rootView: SettingsView())
+        let window = NSWindow(contentViewController: controller)
+        window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.title = "ClipNest Settings"
-        window.contentView = NSHostingView(rootView: SettingsView())
         window.center()
-        window.level = .floating
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)
     }

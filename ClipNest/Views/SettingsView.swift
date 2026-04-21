@@ -64,7 +64,8 @@ struct SettingsView: View {
                         hotkeyModifiers = Int(modifiers)
                         NotificationCenter.default.post(name: .hotkeyChanged, object: nil)
                     }
-                    .frame(width: 0, height: 0)
+                    .frame(width: 1, height: 1)
+                    .opacity(0)
                 )
             }
 
@@ -80,7 +81,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 200)
+        .frame(minWidth: 420, minHeight: 220)
     }
 }
 

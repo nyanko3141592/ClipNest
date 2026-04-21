@@ -12,7 +12,11 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     private var shortcutDisplay: String {
-        HotkeyManager.displayString(keyCode: UInt32(hotkeyKeyCode), carbonModifiers: UInt32(hotkeyModifiers))
+        guard hotkeyKeyCode >= 0, hotkeyModifiers > 0 else { return "None" }
+        return HotkeyManager.displayString(
+            keyCode: UInt32(hotkeyKeyCode),
+            carbonModifiers: UInt32(hotkeyModifiers)
+        )
     }
 
     var body: some View {

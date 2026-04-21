@@ -387,45 +387,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openSnippetEditor() {
-        activateApp()
         if let window = snippetWindow {
+            activateApp()
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let controller = NSHostingController(rootView: SnippetEditorView(dataStore: dataStore))
-        let window = NSWindow(contentViewController: controller)
-        window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
+        let hostingView = NSHostingView(rootView: SnippetEditorView(dataStore: dataStore))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 500)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.title = "Edit Snippets"
-        window.setContentSize(NSSize(width: 700, height: 500))
+        window.contentView = hostingView
         window.center()
         window.setFrameAutosaveName("SnippetEditor")
         snippetWindow = window
+        activateApp()
         window.makeKeyAndOrderFront(nil)
     }
 
     @objc private func openSettings() {
-        activateApp()
         if let window = settingsWindow {
+            activateApp()
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let controller = NSHostingController(rootView: SettingsView())
-        let window = NSWindow(contentViewController: controller)
-        window.styleMask = [.titled, .closable]
+        let hostingView = NSHostingView(rootView: SettingsView())
+        hostingView.frame = NSRect(x: 0, y: 0, width: 420, height: 220)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.title = "ClipNest Settings"
+        window.contentView = hostingView
         window.center()
         settingsWindow = window
+        activateApp()
         window.makeKeyAndOrderFront(nil)
     }
 
     private func activateApp() {
-        if #available(macOS 14.0, *) {
-            NSApp.activate()
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - Placeholder Expansion
